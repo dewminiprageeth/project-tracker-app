@@ -114,8 +114,8 @@ def login():
                 st.session_state.role = role
                 st.success(f"Logged in as {username} ({role})")
 
-    # Set a dummy query param to trigger app refresh without flashing form
-                st.experimental_set_query_params(logged="true")
+    # Modern way to trigger soft rerender without full page refresh
+                st.query_params.update({"logged": "true"})
             else:
                 st.error("Invalid username or password")
         st.stop()
