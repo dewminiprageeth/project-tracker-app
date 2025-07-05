@@ -97,6 +97,13 @@ def generate_pdf_summary(df):
 
 # -------------- Login Function --------------
 def login():
+    # Initialize session state variables with default values if missing
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+    if "username" not in st.session_state:
+        st.session_state.username = ""
+    if "role" not in st.session_state:
+        st.session_state.role = None
     if "just_logged_in" not in st.session_state:
         st.session_state.just_logged_in = False
 
@@ -112,13 +119,13 @@ def login():
                 st.session_state.role = role
                 st.session_state.just_logged_in = True
                 st.success(f"Logged in as {username} ({role})")
-                st.rerun()  # officially restart the script here
+                st.rerun()  # rerun to load main page
             else:
                 st.error("Invalid username or password")
         st.stop()
     else:
+        # Reset the just_logged_in flag after rerun to avoid loop
         if st.session_state.just_logged_in:
-            # reset the flag once rerun happened to avoid infinite loop
             st.session_state.just_logged_in = False
 
 # -------------- User Management --------------
