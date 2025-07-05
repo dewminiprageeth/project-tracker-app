@@ -211,15 +211,15 @@ def main():
         user_management()
 
     if st.button("Logout"):
-    st.session_state.clear()
+        st.session_state.clear()
     # Try rerun safely
-    try:
-        st.experimental_rerun()
-    except AttributeError:
+        try:
+            st.experimental_rerun()
+        except AttributeError:
         # fallback if deprecated
-        import streamlit.runtime.scriptrunner.script_run_context as ctx
-        from streamlit.runtime.scriptrunner import RerunException
-        raise RerunException(ctx.get_script_run_ctx().session_id)
+            import streamlit.runtime.scriptrunner.script_run_context as ctx
+            from streamlit.runtime.scriptrunner import RerunException
+            raise RerunException(ctx.get_script_run_ctx().session_id)
 
 # -------------- Run App --------------
 main()
