@@ -21,7 +21,6 @@ def load_users():
         df = pd.DataFrame(columns=["username", "hashed_password", "role"])
         df.to_csv(USER_FILE, index=False)
 
-    # Add default admin if users.csv is empty
     if df.empty:
         default_admin = {
             "username": "admin",
@@ -31,9 +30,7 @@ def load_users():
         df = pd.DataFrame([default_admin])
         df.to_csv(USER_FILE, index=False)
         st.warning("Default admin user created: Username: admin | Password: admin")
-
     return df
-
 
 def save_users(df):
     df.to_csv(USER_FILE, index=False)
@@ -93,7 +90,8 @@ def generate_pdf_summary(df):
         pdf.ln(5)
     file_name = f"summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     pdf.output(file_name)
-    st.success(f"PDF Summary Generated: {file_name}")
+    with open(file_name, "rb") as f:
+        st.download_button(label="Download PDF Summary", data=f, file_name=file_name, mime="application/pdf")
 
 # -------------- Login Function --------------
 def login():
@@ -119,12 +117,11 @@ def login():
                 st.session_state.role = role
                 st.session_state.just_logged_in = True
                 st.success(f"Logged in as {username} ({role})")
-                st.rerun()  # rerun to load main page
+                st.experimental_rerun()
             else:
                 st.error("Invalid username or password")
         st.stop()
     else:
-        # Reset the just_logged_in flag after rerun to avoid loop
         if st.session_state.just_logged_in:
             st.session_state.just_logged_in = False
 
@@ -146,87 +143,94 @@ def main():
         return
 
     st.title("Ship Repair Project Tracker")
-    data = load_data()
-
-    project_number = st.text_input("Enter Project Number")
-    job_options = data[data["Project Number"] == project_number]["Job Number"].unique().tolist()
-    job_mode = st.radio("Do you want to:", ["Add New Job", "Edit Existing Job"])
-
     user_role = st.session_state.role
 
-    if job_mode == "Edit Existing Job" and job_options:
-        selected_job = st.selectbox("Select Job Number", job_options)
-        row = data[(data["Project Number"] == project_number) & (data["Job Number"] == selected_job)].iloc[0]
-        dept = row["Department"]
-
-        if user_role == dept or user_role == "manager":
-            st.markdown("**Note:** Project Number, Department, and Job Number cannot be changed.")
-            job_desc = st.text_input("Job Description", value=row["Job Description"])
-            start_date = st.date_input("Start Date", value=row["Start Date"])
-            end_date = st.date_input("End Date", value=row["End Date"])
-            progress = st.slider("Progress (%)", min_value=0, max_value=100, value=int(row["Progress"]))
-            comments = st.text_area("Comments", value=row["Comments"])
-
-            if st.button("Update Job"):
-                data.loc[(data["Project Number"] == project_number) &
-                         (data["Job Number"] == selected_job),
-                         ["Job Description", "Start Date", "End Date", "Progress", "Comments"]] = \
-                         [job_desc, pd.to_datetime(start_date), pd.to_datetime(end_date), progress, comments]
-                save_data(data)
-                st.success("Job updated successfully.")
-        else:
-            st.warning("You do not have permission to edit this job.")
-
-    elif job_mode == "Add New Job":
-        job_number = st.text_input("Job Number")
-        job_desc = st.text_input("Job Description")
-        start_date = st.date_input("Start Date")
-        end_date = st.date_input("End Date")
-        progress = st.slider("Progress (%)", min_value=0, max_value=100)
-        comments = st.text_area("Comments")
-
-        if st.button("Add Job"):
-            new_entry = {
-                "Project Number": project_number,
-                "Department": user_role,
-                "Job Number": job_number,
-                "Job Description": job_desc,
-                "Start Date": pd.to_datetime(start_date),
-                "End Date": pd.to_datetime(end_date),
-                "Progress": progress,
-                "Comments": comments,
-                "Baseline": True if not ((data["Project Number"] == project_number) &
-                                          (data["Job Number"] == job_number)).any() else False
-            }
-            data = pd.concat([data, pd.DataFrame([new_entry])], ignore_index=True)
-            save_data(data)
-            st.success("New job added successfully.")
-
-    filtered = data[data["Project Number"] == project_number]
-    if not filtered.empty:
-        st.subheader("All Jobs for This Project")
-        st.dataframe(filtered)
-
-        if st.button("Generate Gantt Chart"):
-            generate_gantt_chart(filtered)
-
-        if st.button("Generate PDF Summary"):
-            generate_pdf_summary(filtered)
-
-    if user_role == "manager":
-        st.markdown("---")
-        user_management()
-
-    if st.button("Logout"):
-        st.session_state.clear()
-    # Try rerun safely
-        try:
+    # Sidebar Navigation & Logout
+    with st.sidebar:
+        st.header("Navigation")
+        options = ["Data Entry", "Charts & Reports"]
+        if user_role == "manager":
+            options.append("User Management")
+        menu = st.radio("Go to", options)
+        if st.button("Logout"):
+            st.session_state.clear()
             st.experimental_rerun()
-        except AttributeError:
-        # fallback if deprecated
-            import streamlit.runtime.scriptrunner.script_run_context as ctx
-            from streamlit.runtime.scriptrunner import RerunException
-            raise RerunException(ctx.get_script_run_ctx().session_id)
+
+    data = load_data()
+
+    if menu == "Data Entry":
+        st.subheader("Data Entry")
+        project_number = st.text_input("Enter Project Number")
+        job_options = data[data["Project Number"] == project_number]["Job Number"].unique().tolist()
+        job_mode = st.radio("Do you want to:", ["Add New Job", "Edit Existing Job"])
+
+        if job_mode == "Edit Existing Job" and job_options:
+            selected_job = st.selectbox("Select Job Number", job_options)
+            row = data[(data["Project Number"] == project_number) & (data["Job Number"] == selected_job)].iloc[0]
+            dept = row["Department"]
+
+            if user_role == dept or user_role == "manager":
+                st.markdown("**Note:** Project Number, Department, and Job Number cannot be changed.")
+                job_desc = st.text_input("Job Description", value=row["Job Description"])
+                start_date = st.date_input("Start Date", value=row["Start Date"])
+                end_date = st.date_input("End Date", value=row["End Date"])
+                progress = st.slider("Progress (%)", min_value=0, max_value=100, value=int(row["Progress"]))
+                comments = st.text_area("Comments", value=row["Comments"])
+
+                if st.button("Update Job"):
+                    data.loc[(data["Project Number"] == project_number) &
+                             (data["Job Number"] == selected_job),
+                             ["Job Description", "Start Date", "End Date", "Progress", "Comments"]] = \
+                             [job_desc, pd.to_datetime(start_date), pd.to_datetime(end_date), progress, comments]
+                    save_data(data)
+                    st.success("Job updated successfully.")
+            else:
+                st.warning("You do not have permission to edit this job.")
+
+        elif job_mode == "Add New Job":
+            job_number = st.text_input("Job Number")
+            job_desc = st.text_input("Job Description")
+            start_date = st.date_input("Start Date")
+            end_date = st.date_input("End Date")
+            progress = st.slider("Progress (%)", min_value=0, max_value=100)
+            comments = st.text_area("Comments")
+
+            if st.button("Add Job"):
+                new_entry = {
+                    "Project Number": project_number,
+                    "Department": user_role,
+                    "Job Number": job_number,
+                    "Job Description": job_desc,
+                    "Start Date": pd.to_datetime(start_date),
+                    "End Date": pd.to_datetime(end_date),
+                    "Progress": progress,
+                    "Comments": comments,
+                    "Baseline": True if not ((data["Project Number"] == project_number) &
+                                              (data["Job Number"] == job_number)).any() else False
+                }
+                data = pd.concat([data, pd.DataFrame([new_entry])], ignore_index=True)
+                save_data(data)
+                st.success("New job added successfully.")
+
+    elif menu == "Charts & Reports":
+        st.subheader("Charts & Reports")
+        project_number = st.text_input("Enter Project Number to View Charts")
+        filtered = data[data["Project Number"] == project_number]
+
+        if not filtered.empty:
+            st.dataframe(filtered)
+
+            if st.button("Generate Gantt Chart"):
+                generate_gantt_chart(filtered)
+
+            if st.button("Generate PDF Summary"):
+                generate_pdf_summary(filtered)
+
+            excel_bytes = filtered.to_excel(index=False)
+            st.download_button("Download Excel", data=excel_bytes, file_name="project_data.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    elif menu == "User Management" and user_role == "manager":
+        user_management()
 
 # -------------- Run App --------------
 main()
