@@ -97,10 +97,8 @@ def generate_pdf_summary(df):
 
 # -------------- Login Function --------------
 def login():
-    if "logged_in" not in st.session_state:
-        st.session_state.logged_in = False
-    if "role" not in st.session_state:
-        st.session_state.role = None
+    if "just_logged_in" not in st.session_state:
+        st.session_state.just_logged_in = False
 
     if not st.session_state.logged_in:
         st.title("Login")
@@ -112,13 +110,16 @@ def login():
                 st.session_state.logged_in = True
                 st.session_state.username = username
                 st.session_state.role = role
+                st.session_state.just_logged_in = True
                 st.success(f"Logged in as {username} ({role})")
-
-    # Modern way to trigger soft rerender without full page refresh
-                st.query_params.update({"logged": "true"})
+                st.rerun()  # officially restart the script here
             else:
                 st.error("Invalid username or password")
         st.stop()
+    else:
+        if st.session_state.just_logged_in:
+            # reset the flag once rerun happened to avoid infinite loop
+            st.session_state.just_logged_in = False
 
 # -------------- User Management --------------
 def user_management():
