@@ -150,11 +150,13 @@ def main():
         st.header("Navigation")
         options = ["Data Entry", "Charts & Reports"]
         if user_role == "manager":
-            options.append("User Management")
+           options.append("User Management")
         menu = st.radio("Go to", options)
+
         if st.button("Logout"):
             st.session_state.clear()
             st.experimental_rerun()
+            return  # <--- add this return here!
 
     data = load_data()
 
